@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { env } from '../../config/env.ts';
-import { UpstreamError } from '../../middlewares/errorHandler.ts';
+import { NotFoundError, UpstreamError } from '../../middlewares/errorHandler.ts';
 
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_TIMEOUT_MS = 8000;
@@ -43,6 +43,10 @@ async function tmdbRequest(path: string, params: Record<string, string>): Promis
     throw new UpstreamError('Upstream TMDb error');
   }
 
+  if (response.status === 404) {
+    throw new NotFoundError('Movie not found on TMDb');
+  }
+
   if (!response.ok) {
     throw new UpstreamError('Upstream TMDb error');
   }
@@ -72,4 +76,19 @@ export async function searchMovies(query: string): Promise<CatalogMovie[]> {
   }
 
   return parsed.data.results.map(toCatalogMovie);
+}
+
+/**
+ * Used by the events module at creation time to snapshot movie metadata.
+ * TMDb is never consulted again for an event after it is created.
+ */
+export async function getMovieById(tmdbId: number): Promise<CatalogMovie> {
+  const payload = await tmdbRequest(`/movie/${tmdbId}`, {});
+  const parsed = TmdbMovieSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    throw new UpstreamError('Upstream TMDb error');
+  }
+
+  return toCatalogMovie(parsed.data);
 }

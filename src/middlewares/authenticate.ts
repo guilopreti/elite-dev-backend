@@ -24,6 +24,13 @@ function extractBearerToken(header: string | undefined): string | null {
   return token;
 }
 
+function verifyAuthToken(token: string): AuthUser | null {
+  const decoded = jwt.verify(token, env.JWT_SECRET);
+  const payload = AuthPayloadSchema.safeParse(decoded);
+
+  return payload.success ? payload.data : null;
+}
+
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   const token = extractBearerToken(req.headers.authorization);
 
@@ -33,15 +40,14 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
   }
 
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET);
-    const payload = AuthPayloadSchema.safeParse(decoded);
+    const user = verifyAuthToken(token);
 
-    if (!payload.success) {
+    if (!user) {
       next(new UnauthorizedError('Invalid token'));
       return;
     }
 
-    req.user = payload.data;
+    req.user = user;
     next();
   } catch (err) {
     if (err instanceof Error && err.name === 'TokenExpiredError') {
@@ -51,6 +57,33 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
 
     next(new UnauthorizedError('Invalid token'));
   }
+}
+
+/**
+ * For public routes whose response varies for the resource owner, such as an
+ * Organizer reading back their own draft event. A missing or unusable token is
+ * not an error here — the request simply proceeds as anonymous.
+ */
+export function optionalAuthenticate(req: Request, _res: Response, next: NextFunction): void {
+  const token = extractBearerToken(req.headers.authorization);
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  try {
+    const user = verifyAuthToken(token);
+
+    if (user) {
+      req.user = user;
+    }
+  } catch {
+    // Anonymous access is valid on these routes, so an invalid or expired
+    // token is ignored rather than rejected.
+  }
+
+  next();
 }
 
 export function getAuthUser(req: Request): AuthUser {

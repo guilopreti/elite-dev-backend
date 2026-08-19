@@ -24,6 +24,22 @@ export function validateBody<T>(schema: ZodType<T>): RequestHandler {
   };
 }
 
+/**
+ * Guards route params before they reach Prisma — a malformed UUID would
+ * otherwise surface as an unhandled database error instead of a 422.
+ */
+export function validateParams<T>(schema: ZodType<T>): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.params);
+    if (!result.success) {
+      res.status(422).json(formatZodError(result.error));
+      return;
+    }
+    req.params = result.data as Request['params'];
+    next();
+  };
+}
+
 export function validateQuery<T>(schema: ZodType<T>): RequestHandler {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.query);
