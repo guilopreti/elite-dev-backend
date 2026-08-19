@@ -31,7 +31,15 @@ export function validateQuery<T>(schema: ZodType<T>): RequestHandler {
       res.status(422).json(formatZodError(result.error));
       return;
     }
-    req.query = result.data as Request['query'];
+    // Express 5 exposes `req.query` as a getter-only accessor on the prototype,
+    // so a plain assignment throws. Defining an own property shadows it with the
+    // validated data while keeping the usual `req.query` access for controllers.
+    Object.defineProperty(req, 'query', {
+      value: result.data,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
     next();
   };
 }
