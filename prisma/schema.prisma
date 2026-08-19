@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  organizer
+  customer
+  gate
+}
+
+enum EventStatus {
+  draft
+  published
+}
+
+enum ReservationStatus {
+  pending
+  paid
+  declined
+}
+
+enum PaymentStatus {
+  approved
+  declined
+}
+
+enum TicketStatus {
+  valid
+  used
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String
+  email         String   @unique
+  password_hash String
+  role          Role
+  created_at    DateTime @default(now())
+
+  events       Event[]       @relation("OrganizerEvents")
+  reservations Reservation[]
+  tickets      Ticket[]
+
+  @@map("users")
+}
+
+model Event {
+  id              String      @id @default(uuid())
+  tmdb_id         Int
+  title           String
+  overview        String
+  poster_path     String
+  venue           String
+  date            DateTime
+  price           Decimal     @db.Decimal(10, 2)
+  capacity        Int
+  available_seats Int
+  status          EventStatus @default(draft)
+  organizer_id    String
+  created_at      DateTime    @default(now())
+
+  organizer    User          @relation("OrganizerEvents", fields: [organizer_id], references: [id])
+  reservations Reservation[]
+  tickets      Ticket[]
+
+  @@index([status])
+  @@index([date])
+  @@index([venue])
+  @@map("events")
+}
+
+model Reservation {
+  id          String            @id @default(uuid())
+  event_id    String
+  customer_id String
+  quantity    Int
+  total_price Decimal           @db.Decimal(10, 2)
+  status      ReservationStatus @default(pending)
+  created_at  DateTime          @default(now())
+
+  event    Event    @relation(fields: [event_id], references: [id])
+  customer User     @relation(fields: [customer_id], references: [id])
+  payment  Payment?
+  tickets  Ticket[]
+
+  @@map("reservations")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  reservation_id  String        @unique
+  card_last_digit String        @db.Char(1)
+  status          PaymentStatus
+  created_at      DateTime      @default(now())
+
+  reservation Reservation @relation(fields: [reservation_id], references: [id])
+
+  @@map("payments")
+}
+
+model Ticket {
+  id             String       @id @default(uuid())
+  reservation_id String
+  event_id       String
+  customer_id    String
+  code           String       @unique
+  token          String
+  status         TicketStatus @default(valid)
+  created_at     DateTime     @default(now())
+
+  reservation Reservation @relation(fields: [reservation_id], references: [id])
+  event       Event       @relation(fields: [event_id], references: [id])
+  customer    User        @relation(fields: [customer_id], references: [id])
+
+  @@index([code])
+  @@index([customer_id])
+  @@map("tickets")
+}
