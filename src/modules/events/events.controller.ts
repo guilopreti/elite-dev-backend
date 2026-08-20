@@ -41,6 +41,13 @@ export async function list(req: Request, res: Response): Promise<void> {
   res.status(200).json(result);
 }
 
+export async function listMyEvents(req: Request, res: Response): Promise<void> {
+  const { userId } = getAuthUser(req);
+  const result = await eventsService.listOrganizerEvents(userId, req.query as unknown as EventQueryInput);
+
+  res.status(200).json(result);
+}
+
 export async function getById(req: Request, res: Response): Promise<void> {
   const event = await eventsService.getEventById(req.params.id as string, req.user?.userId);
 

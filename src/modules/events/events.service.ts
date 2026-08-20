@@ -38,6 +38,7 @@ function toEventSummary(event: Event) {
     date: event.date,
     price: Number(event.price),
     available_seats: event.available_seats,
+    status: event.status,
   };
 }
 
@@ -128,8 +129,17 @@ export async function deleteEvent(eventId: string, organizerId: string): Promise
   await eventsRepository.remove(eventId);
 }
 
-function buildListFilters(query: EventQueryInput): Prisma.EventWhereInput {
-  const where: Prisma.EventWhereInput = { status: 'published' };
+function buildListFilters(
+  query: EventQueryInput,
+  organizerId?: string,
+): Prisma.EventWhereInput {
+  // When an organizer is requesting, include their own drafts alongside published events.
+  // Otherwise only published events are visible.
+  const statusFilter: Prisma.EventWhereInput = organizerId
+    ? { OR: [{ status: 'published' }, { status: 'draft', organizer_id: organizerId }] }
+    : { status: 'published' };
+
+  const where: Prisma.EventWhereInput = { ...statusFilter };
 
   if (query.date) {
     const dayStart = new Date(`${query.date}T00:00:00.000Z`);
@@ -150,6 +160,24 @@ function buildListFilters(query: EventQueryInput): Prisma.EventWhereInput {
 export async function listEvents(query: EventQueryInput) {
   const { events, total } = await eventsRepository.findAll({
     where: buildListFilters(query),
+    skip: (query.page - 1) * query.limit,
+    take: query.limit,
+  });
+
+  return {
+    data: events.map(toEventSummary),
+    meta: {
+      total,
+      page: query.page,
+      limit: query.limit,
+      totalPages: Math.ceil(total / query.limit),
+    },
+  };
+}
+
+export async function listOrganizerEvents(organizerId: string, query: EventQueryInput) {
+  const { events, total } = await eventsRepository.findAll({
+    where: buildListFilters(query, organizerId),
     skip: (query.page - 1) * query.limit,
     take: query.limit,
   });

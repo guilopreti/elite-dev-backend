@@ -45,6 +45,14 @@ eventsRouter.delete(
   eventsController.remove,
 );
 
+eventsRouter.get(
+  '/me',
+  authenticate,
+  authorize('organizer'),
+  validateQuery(EventQuerySchema),
+  eventsController.listMyEvents,
+);
+
 eventsRouter.get('/', validateQuery(EventQuerySchema), eventsController.list);
 
 eventsRouter.get(
