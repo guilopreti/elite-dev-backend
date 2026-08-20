@@ -1,5 +1,7 @@
 # Elite Dev Backend — Plataforma de Eventos e Ingressos
 
+API disponível em: https://elite-dev-backend.onrender.com/
+
 API REST para uma plataforma onde um organizador publica eventos a partir de filmes do catálogo TMDb, o cliente reserva ingressos, paga de forma simulada e recebe ingressos individuais com código para QR code. Cada ingresso pode ser compartilhado por link público, e na portaria é validado por código curto — escaneado ou digitado à mão.
 
 ## Stack
